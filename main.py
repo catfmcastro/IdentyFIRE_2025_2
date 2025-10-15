@@ -27,7 +27,7 @@ def validate_dataset(base_dir):
 
     return corrupted
 
-dataset_dir = 'C:\\Main\\Downloads\\archiveTI'
+dataset_dir = "H:\\Arquivos\\Documents\\code\\2025_2\\TI_VI\\IdentyFIRE_2025_2\\images"
 
 if os.path.exists(dataset_dir):
     # Validar dataset (opcional)
