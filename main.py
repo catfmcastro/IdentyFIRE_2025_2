@@ -1,4 +1,5 @@
 from PIL import ImageFile
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 import tensorflow as tf
@@ -8,15 +9,34 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+
+# # Verifica se a GPU está disponível
+# gpus = tf.config.list_physical_devices("GPU")
+# if gpus:
+#     try:
+#         for gpu in gpus:
+#             tf.config.experimental.set_memory_growth(gpu, True)
+#         logical_gpus = tf.config.list_logical_devices("GPU")
+#         print(
+#             f"{len(gpus)} GPU(s) física(s) detectada(s), {len(logical_gpus)} GPU(s) lógica(s) disponível(eis)."
+#         )
+#         print("O treinamento será executado na GPU.")
+#     except RuntimeError as e:
+#         print(e)
+# else:
+#     print("Nenhuma GPU detectada. O treinamento será executado na CPU.")
+
 
 # Função de validação (opcional)
 def validate_dataset(base_dir):
     from PIL import Image
+
     corrupted = []
 
     for root, dirs, files in os.walk(base_dir):
         for file in files:
-            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+            if file.lower().endswith((".png", ".jpg", ".jpeg")):
                 file_path = os.path.join(root, file)
                 try:
                     with Image.open(file_path) as img:
@@ -27,17 +47,20 @@ def validate_dataset(base_dir):
 
     return corrupted
 
+
 dataset_dir = "H:\\Arquivos\\Documents\\code\\2025_2\\TI_VI\\IdentyFIRE_2025_2\\images"
 
 if os.path.exists(dataset_dir):
+    start_time = time.time()
+
     # Validar dataset (opcional)
     print("Validando imagens...")
     corrupted = validate_dataset(dataset_dir)
     print(f"Imagens corrompidas encontradas: {len(corrupted)}")
 
-    train_dir = os.path.join(dataset_dir, 'train')
-    validation_dir = os.path.join(dataset_dir, 'valid')
-    test_dir = os.path.join(dataset_dir, 'test')
+    train_dir = os.path.join(dataset_dir, "train")
+    validation_dir = os.path.join(dataset_dir, "valid")
+    test_dir = os.path.join(dataset_dir, "test")
 
     # Dimensões das imagens e tamanho do batch
     IMG_HEIGHT = 150
@@ -46,17 +69,17 @@ if os.path.exists(dataset_dir):
 
     # Criação de geradores de dados de imagem com data augmentation para o conjunto de treino
     train_image_generator = ImageDataGenerator(
-        rescale=1./255,
+        rescale=1.0 / 255,
         rotation_range=45,
-        width_shift_range=.15,
-        height_shift_range=.15,
+        width_shift_range=0.15,
+        height_shift_range=0.15,
         horizontal_flip=True,
-        zoom_range=0.5
+        zoom_range=0.5,
     )
 
     # Gerador de dados para validação e teste (apenas reescala)
-    validation_image_generator = ImageDataGenerator(rescale=1./255)
-    test_image_generator = ImageDataGenerator(rescale=1./255)
+    validation_image_generator = ImageDataGenerator(rescale=1.0 / 255)
+    test_image_generator = ImageDataGenerator(rescale=1.0 / 255)
 
     # Carregamento dos dados de treino, validação e teste
     train_data_gen = train_image_generator.flow_from_directory(
@@ -64,48 +87,46 @@ if os.path.exists(dataset_dir):
         directory=train_dir,
         shuffle=True,
         target_size=(IMG_HEIGHT, IMG_WIDTH),
-        class_mode='binary'
+        class_mode="binary",
     )
 
     val_data_gen = validation_image_generator.flow_from_directory(
         batch_size=BATCH_SIZE,
         directory=validation_dir,
         target_size=(IMG_HEIGHT, IMG_WIDTH),
-        class_mode='binary'
+        class_mode="binary",
     )
 
     test_data_gen = test_image_generator.flow_from_directory(
         batch_size=BATCH_SIZE,
         directory=test_dir,
         target_size=(IMG_HEIGHT, IMG_WIDTH),
-        class_mode='binary',
-        shuffle=False  # Importante: não embaralhar para manter ordem
+        class_mode="binary",
+        shuffle=False,  # Importante: não embaralhar para manter ordem
     )
 
     # 2. Construção do Modelo (Rede Neural Convolucional)
-    model = Sequential([
-        Conv2D(32, (3, 3), activation='relu', input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)),
-        MaxPooling2D(2, 2),
-
-        Conv2D(64, (3, 3), activation='relu'),
-        MaxPooling2D(2, 2),
-
-        Conv2D(128, (3, 3), activation='relu'),
-        MaxPooling2D(2, 2),
-
-        Conv2D(128, (3, 3), activation='relu'),
-        MaxPooling2D(2, 2),
-
-        Flatten(),
-        Dropout(0.5),
-        Dense(512, activation='relu'),
-        Dense(1, activation='sigmoid')
-    ])
+    model = Sequential(
+        [
+            Conv2D(
+                32, (3, 3), activation="relu", input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)
+            ),
+            MaxPooling2D(2, 2),
+            Conv2D(64, (3, 3), activation="relu"),
+            MaxPooling2D(2, 2),
+            Conv2D(128, (3, 3), activation="relu"),
+            MaxPooling2D(2, 2),
+            Conv2D(128, (3, 3), activation="relu"),
+            MaxPooling2D(2, 2),
+            Flatten(),
+            Dropout(0.5),
+            Dense(512, activation="relu"),
+            Dense(1, activation="sigmoid"),
+        ]
+    )
 
     # 3. Compilação do Modelo
-    model.compile(optimizer='adam',
-                  loss='binary_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
 
     model.summary()
 
@@ -116,35 +137,35 @@ if os.path.exists(dataset_dir):
         steps_per_epoch=train_data_gen.samples // BATCH_SIZE,
         epochs=epochs,
         validation_data=val_data_gen,
-        validation_steps=val_data_gen.samples // BATCH_SIZE
+        validation_steps=val_data_gen.samples // BATCH_SIZE,
     )
 
     # 5. Avaliação do Modelo
-    acc = history.history['accuracy']
-    val_acc = history.history['val_accuracy']
+    acc = history.history["accuracy"]
+    val_acc = history.history["val_accuracy"]
 
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
+    loss = history.history["loss"]
+    val_loss = history.history["val_loss"]
 
     epochs_range = range(epochs)
 
     plt.figure(figsize=(8, 8))
     plt.subplot(1, 2, 1)
-    plt.plot(epochs_range, acc, label='Acurácia de Treino')
-    plt.plot(epochs_range, val_acc, label='Acurácia de Validação')
-    plt.legend(loc='lower right')
-    plt.title('Acurácia de Treino e Validação')
+    plt.plot(epochs_range, acc, label="Acurácia de Treino")
+    plt.plot(epochs_range, val_acc, label="Acurácia de Validação")
+    plt.legend(loc="lower right")
+    plt.title("Acurácia de Treino e Validação")
 
     plt.subplot(1, 2, 2)
-    plt.plot(epochs_range, loss, label='Perda de Treino')
-    plt.plot(epochs_range, val_loss, label='Perda de Validação')
-    plt.legend(loc='upper right')
-    plt.title('Perda de Treino e Validação')
+    plt.plot(epochs_range, loss, label="Perda de Treino")
+    plt.plot(epochs_range, val_loss, label="Perda de Validação")
+    plt.legend(loc="upper right")
+    plt.title("Perda de Treino e Validação")
     plt.show()
 
     # Avaliação final com o conjunto de teste
     test_loss, test_acc = model.evaluate(test_data_gen, verbose=2)
-    print('\nAcurácia no conjunto de teste:', test_acc)
+    print("\nAcurácia no conjunto de teste:", test_acc)
 
     # 6. Predições em TOD0 o conjunto de teste
     print("\n=== Fazendo predições em todo o conjunto de teste ===")
@@ -166,7 +187,9 @@ if os.path.exists(dataset_dir):
 
     print("\n=== Relatório de Classificação ===")
     class_names = list(test_data_gen.class_indices.keys())
-    print(classification_report(true_labels, predicted_labels, target_names=class_names))
+    print(
+        classification_report(true_labels, predicted_labels, target_names=class_names)
+    )
 
     print("\n=== Matriz de Confusão ===")
     cm = confusion_matrix(true_labels, predicted_labels)
@@ -174,23 +197,28 @@ if os.path.exists(dataset_dir):
 
     # Visualizar matriz de confusão
     plt.figure(figsize=(8, 6))
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title('Matriz de Confusão')
+    plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    plt.title("Matriz de Confusão")
     plt.colorbar()
     tick_marks = np.arange(len(class_names))
     plt.xticks(tick_marks, class_names, rotation=45)
     plt.yticks(tick_marks, class_names)
 
     # Adicionar valores na matriz
-    thresh = cm.max() / 2.
+    thresh = cm.max() / 2.0
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
-            plt.text(j, i, format(cm[i, j], 'd'),
-                     ha="center", va="center",
-                     color="white" if cm[i, j] > thresh else "black")
+            plt.text(
+                j,
+                i,
+                format(cm[i, j], "d"),
+                ha="center",
+                va="center",
+                color="white" if cm[i, j] > thresh else "black",
+            )
 
-    plt.ylabel('Rótulo Verdadeiro')
-    plt.xlabel('Rótulo Predito')
+    plt.ylabel("Rótulo Verdadeiro")
+    plt.xlabel("Rótulo Predito")
     plt.tight_layout()
     plt.show()
 
@@ -226,11 +254,14 @@ if os.path.exists(dataset_dir):
         pred_label = class_names[1 if pred_prob > 0.5 else 0]
 
         # Cor do título: verde se correto, vermelho se incorreto
-        color = 'green' if true_label == pred_label else 'red'
+        color = "green" if true_label == pred_label else "red"
 
-        plt.title(f'Real: {true_label}\nPred: {pred_label} ({pred_prob:.2%})',
-                  color=color, fontsize=10)
-        plt.axis('off')
+        plt.title(
+            f"Real: {true_label}\nPred: {pred_label} ({pred_prob:.2%})",
+            color=color,
+            fontsize=10,
+        )
+        plt.axis("off")
 
     plt.tight_layout()
     plt.show()
@@ -242,6 +273,15 @@ if os.path.exists(dataset_dir):
     print(f"Predições corretas: {np.sum(predicted_labels == true_labels)}")
     print(f"Predições incorretas: {np.sum(predicted_labels != true_labels)}")
     print(f"Acurácia: {accuracy:.2%}")
+
+    model.save("IdentyFIRE1.h5")
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    minutes = execution_time // 60
+    seconds = execution_time % 60
+    print("\n\n--- Fim da Execução ---")
+    print(f"Tempo total de execução: {int(minutes)} minutos e {seconds:.2f} segundos.")
 
 else:
     print(f"Diretório não encontrado: {dataset_dir}")
