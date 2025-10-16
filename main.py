@@ -48,7 +48,7 @@ def validate_dataset(base_dir):
     return corrupted
 
 
-dataset_dir = "H:\\Arquivos\\Documents\\code\\2025_2\\TI_VI\\IdentyFIRE_2025_2\\images"
+dataset_dir = "/mnt/h/Arquivos/Documents/code/2025_2/TI_VI/IdentyFIRE_2025_2/images"
 
 if os.path.exists(dataset_dir):
     start_time = time.time()
