@@ -1,1 +1,27 @@
-images/
+# Dados de treinamento (muito grandes)
+dataset/
+\dataset
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de teste
+.pytest_cache/
+.coverage
+
+# Modelos treinados (opcional)
+# models/*.h5
+# outputs/

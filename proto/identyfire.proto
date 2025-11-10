@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package identyfire;
+
+// ---- Mensagens para Inferência ----
+message PredictRequest {
+  string model_id = 1; // ex: "latest"
+  bytes image_bytes = 2; // Bytes da imagem enviada pela GUI
+}
+
+message PredictResponse {
+  string label = 1;      // "INCÊNDIO" ou "Nenhum incêndio"
+  double confidence = 2; // 0.0 a 1.0
+}
+
+// ---- Mensagens para Treinamento ----
+message TrainRequest {
+  string dataset_uri = 1; // Caminho absoluto para a pasta 'images'
+  int32 epochs = 2;
+}
+
+message JobResponse {
+  string job_id = 1; // ID único para o job de treino
+}
+
+message JobStatusRequest {
+  string job_id = 1;
+}
+
+message JobStatusResponse {
+  enum State { UNKNOWN = 0; RUNNING = 1; COMPLETED = 2; FAILED = 3; }
+  State state = 1;
+  string logs_path = 2; // Caminho para o .log do job
+}
+
+// ---- Definição dos Serviços ----
+service ModelService {
+  // Chamado pela GUI
+  rpc PredictImage (PredictRequest) returns (PredictResponse);
+}
+
+service TrainingService {
+  // Chamado por um agente ou cliente de admin
+  rpc SubmitTrainingJob (TrainRequest) returns (JobResponse);
+  rpc GetJobStatus (JobStatusRequest) returns (JobStatusResponse);
+}
