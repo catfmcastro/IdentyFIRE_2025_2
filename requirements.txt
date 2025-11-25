@@ -1,0 +1,8 @@
+tensorflow-directml-plugin==0.4.0.dev230202
+pillow==10.2.0
+numpy==1.26.3
+matplotlib==3.8.2
+scikit-learn==1.4.0
+flask==3.0.0
+flask-cors==4.0.0
+requests==2.31.0

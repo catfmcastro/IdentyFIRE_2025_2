@@ -1,0 +1,20 @@
+{
+    "server": {
+        "host": "127.0.0.1",
+        "port": 5000,
+        "models_directory": "./models",
+        "default_model": "best_model.h5",
+        "auto_load_default": true,
+        "max_image_size_mb": 10
+    },
+    "model": {
+        "img_height": 150,
+        "img_width": 150,
+        "prediction_threshold": 0.5
+    },
+    "logging": {
+        "max_logs": 1000,
+        "save_logs": true,
+        "log_file": "server_logs.txt"
+    }
+}
