@@ -8,9 +8,9 @@ echo.
 
 cd /d "%~dp0.."
 
-REM Ativar ambiente virtual
-if exist ".venv\Scripts\activate.bat" (
-    call .venv\Scripts\activate.bat
+REM Verificar se venv existe
+if exist ".venv\Scripts\python.exe" (
+    set PYTHON_VENV=%CD%\.venv\Scripts\python.exe
 ) else (
     echo AVISO: Ambiente virtual nao encontrado!
     echo Execute scripts\install.bat primeiro.
@@ -22,7 +22,7 @@ if exist ".venv\Scripts\activate.bat" (
 echo Iniciando cliente...
 echo.
 
-python src\client_gui.py
+"%PYTHON_VENV%" src\client_gui.py
 
 if errorlevel 1 (
     echo.
