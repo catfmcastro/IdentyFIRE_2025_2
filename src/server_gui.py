@@ -79,6 +79,13 @@ class IdentyFireServer:
             return False
         
         models_dir = self.config['server']['models_directory']
+        
+        # Se models_dir for relativo, torná-lo absoluto
+        if not os.path.isabs(models_dir):
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            models_dir = os.path.join(project_root, models_dir)
+        
         model_path = os.path.join(models_dir, default_model)
         
         return self.load_model_by_path(model_path)
@@ -186,6 +193,13 @@ class IdentyFireServer:
             # Se for apenas o nome do arquivo, adicionar diretório
             if not os.path.isabs(model_path):
                 models_dir = self.config['server']['models_directory']
+                
+                # Se models_dir for relativo, torná-lo absoluto
+                if not os.path.isabs(models_dir):
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    project_root = os.path.dirname(script_dir)
+                    models_dir = os.path.join(project_root, models_dir)
+                
                 model_path = os.path.join(models_dir, model_path)
             
             if not os.path.exists(model_path):

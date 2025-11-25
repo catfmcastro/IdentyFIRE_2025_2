@@ -14,6 +14,14 @@ from datetime import datetime
 def load_config(config_path="config.json"):
     """Carrega arquivo de configuração"""
     try:
+        # Se o caminho não for absoluto, buscar no diretório raiz do projeto
+        if not os.path.isabs(config_path):
+            # Obter diretório onde utils.py está (src/)
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            # Subir um nível para obter o diretório raiz do projeto
+            project_root = os.path.dirname(script_dir)
+            config_path = os.path.join(project_root, config_path)
+        
         with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
@@ -51,6 +59,12 @@ def scan_models(models_dir="./models"):
         list: Lista de dicionários com informações dos modelos
     """
     models = []
+    
+    # Se o caminho não for absoluto, torná-lo relativo ao diretório raiz do projeto
+    if not os.path.isabs(models_dir):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        models_dir = os.path.join(project_root, models_dir)
     
     if not os.path.exists(models_dir):
         print(f"⚠ Diretório de modelos não encontrado: {models_dir}")

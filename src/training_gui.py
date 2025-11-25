@@ -589,13 +589,20 @@ class TrainingGUI:
             self.log_training("=" * 80)
             
             env = os.environ.copy()
+            
+            # Obter diretório raiz do projeto (pai de src/)
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            main_py_path = os.path.join(script_dir, "main.py")
+            
             if 'PYTHONPATH' not in env:
-                env['PYTHONPATH'] = os.getcwd()
+                env['PYTHONPATH'] = project_root
             env['TF_DIRECTML_PATH'] = ''
             
-            cmd = [sys.executable, "main.py", dataset_dir, model_name, str(epochs), str(batch_size)]
+            cmd = [sys.executable, main_py_path, dataset_dir, model_name, str(epochs), str(batch_size)]
             
             self.log_training(f"Comando: {' '.join(cmd)}\n")
+            self.log_training(f"Diretório de trabalho: {project_root}\n")
             
             start_time = datetime.now()
             
@@ -606,7 +613,7 @@ class TrainingGUI:
                 text=True,
                 bufsize=1,
                 env=env,
-                cwd=os.getcwd()
+                cwd=project_root
             )
             
             # Ler saída em tempo real
@@ -684,7 +691,16 @@ class TrainingGUI:
     def move_model_to_folder(self, model_name):
         """Move modelo treinado para pasta de modelos"""
         try:
+            # Obter diretório raiz do projeto
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            
             models_dir = self.config['server']['models_directory']
+            
+            # Se models_dir for relativo, torná-lo absoluto em relação ao project_root
+            if not os.path.isabs(models_dir):
+                models_dir = os.path.join(project_root, models_dir)
+            
             os.makedirs(models_dir, exist_ok=True)
             
             source_files = [
@@ -696,9 +712,11 @@ class TrainingGUI:
             ]
             
             for filename in source_files:
-                if os.path.exists(filename):
+                # Os arquivos são gerados no diretório raiz do projeto
+                source_path = os.path.join(project_root, filename)
+                if os.path.exists(source_path):
                     dest = os.path.join(models_dir, filename)
-                    shutil.move(filename, dest)
+                    shutil.move(source_path, dest)
                     self.log_training(f"✓ Movido: {filename} -> {models_dir}")
         except Exception as e:
             self.log_training(f"⚠ Erro ao mover arquivos: {e}")
