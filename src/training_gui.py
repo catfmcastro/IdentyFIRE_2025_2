@@ -1,11 +1,9 @@
 """
-IdentyFire Training GUI - Interface para treinamento e gerenciamento de modelos
+IdentyFire Training GUI - Interface para treinamento de modelos
 Responsabilidades:
 - Treinar novos modelos
-- Gerenciar modelos existentes
-- Carregar modelos no servidor
 - Visualizar estatísticas de treinamento
-- Editar parâmetros de treinamento
+- Carregar modelos automaticamente no servidor
 """
 
 import tkinter as tk
@@ -19,45 +17,39 @@ import requests
 from datetime import datetime
 import shutil
 
-from utils import load_config, scan_models
+from utils import load_config
 
 
 class TrainingGUI:
-    """Interface gráfica para treinamento e gerenciamento de modelos"""
+    """Interface gráfica para treinamento de modelos"""
     
     def __init__(self, master):
         self.master = master
         self.config = load_config()
         self.training_process = None
         self.is_training = False
-        self.server_url = f"http://{self.config['server']['host']}:{self.config['server']['port']}"
+        
+        # Construir URL do servidor - usar 127.0.0.1 se host for 0.0.0.0
+        host = self.config['server']['host']
+        if host == '0.0.0.0':
+            host = '127.0.0.1'
+        self.server_url = f"http://{host}:{self.config['server']['port']}"
         
         # Configuração da janela
-        self.master.title("IdentyFire - Treinamento e Gerenciamento de Modelos")
-        self.master.geometry("1200x900")
+        self.master.title("IdentyFire - Treinamento de Modelos")
+        self.master.geometry("1200x850")
         self.master.configure(bg="#f0f0f0")
         
         self.setup_ui()
-        self.refresh_models_list()
     
     def setup_ui(self):
         """Configura a interface do usuário"""
         
-        # Criar notebook (abas)
-        self.notebook = ttk.Notebook(self.master)
-        self.notebook.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
-        
-        # ==================== ABA 1: TREINAMENTO ====================
-        self.tab_training = tk.Frame(self.notebook, bg="#f0f0f0")
-        self.notebook.add(self.tab_training, text="🎓 Treinamento")
+        # Criar frame principal para treinamento (sem notebook)
+        self.tab_training = tk.Frame(self.master, bg="#f0f0f0")
+        self.tab_training.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
         
         self.setup_training_tab()
-        
-        # ==================== ABA 2: GERENCIAMENTO ====================
-        self.tab_management = tk.Frame(self.notebook, bg="#f0f0f0")
-        self.notebook.add(self.tab_management, text="📦 Gerenciamento")
-        
-        self.setup_management_tab()
     
     def setup_training_tab(self):
         """Configura aba de treinamento"""
@@ -135,15 +127,6 @@ class TrainingGUI:
             options_frame,
             text="Salvar automaticamente na pasta de modelos",
             variable=self.auto_save_var,
-            bg="#e3f2fd",
-            font=("Helvetica", 10)
-        ).pack(side=tk.LEFT, padx=5)
-        
-        self.auto_load_server_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(
-            options_frame,
-            text="Carregar no servidor após treinar",
-            variable=self.auto_load_server_var,
             bg="#e3f2fd",
             font=("Helvetica", 10)
         ).pack(side=tk.LEFT, padx=5)
@@ -302,174 +285,7 @@ class TrainingGUI:
             cursor="hand2"
         ).pack(pady=5)
     
-    def setup_management_tab(self):
-        """Configura aba de gerenciamento"""
-        
-        # ==================== LISTA DE MODELOS ====================
-        list_frame = tk.LabelFrame(
-            self.tab_management,
-            text="📦 Modelos Disponíveis",
-            font=("Helvetica", 12, "bold"),
-            bg="#e3f2fd",
-            padx=15,
-            pady=15
-        )
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Botões de ação
-        btn_frame = tk.Frame(list_frame, bg="#e3f2fd")
-        btn_frame.pack(fill=tk.X, pady=5)
-        
-        tk.Button(
-            btn_frame,
-            text="🔄 Atualizar Lista",
-            command=self.refresh_models_list,
-            font=("Helvetica", 10),
-            bg="#2196F3",
-            fg="white",
-            cursor="hand2"
-        ).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(
-            btn_frame,
-            text="📂 Abrir Pasta de Modelos",
-            command=self.open_models_folder,
-            font=("Helvetica", 10),
-            bg="#4CAF50",
-            fg="white",
-            cursor="hand2"
-        ).pack(side=tk.LEFT, padx=5)
-        
-        # Tabela de modelos
-        table_frame = tk.Frame(list_frame, bg="#e3f2fd")
-        table_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        
-        # Scrollbars
-        scrollbar_y = tk.Scrollbar(table_frame)
-        scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        scrollbar_x = tk.Scrollbar(table_frame, orient=tk.HORIZONTAL)
-        scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
-        
-        # Treeview
-        self.models_tree = ttk.Treeview(
-            table_frame,
-            columns=('name', 'size', 'modified', 'status'),
-            show='headings',
-            yscrollcommand=scrollbar_y.set,
-            xscrollcommand=scrollbar_x.set
-        )
-        
-        self.models_tree.heading('name', text='Nome do Modelo')
-        self.models_tree.heading('size', text='Tamanho')
-        self.models_tree.heading('modified', text='Modificado')
-        self.models_tree.heading('status', text='Status')
-        
-        self.models_tree.column('name', width=300)
-        self.models_tree.column('size', width=100)
-        self.models_tree.column('modified', width=150)
-        self.models_tree.column('status', width=150)
-        
-        self.models_tree.pack(fill=tk.BOTH, expand=True)
-        
-        scrollbar_y.config(command=self.models_tree.yview)
-        scrollbar_x.config(command=self.models_tree.xview)
-        
-        # ==================== AÇÕES DO MODELO ====================
-        actions_frame = tk.LabelFrame(
-            self.tab_management,
-            text="🔧 Ações",
-            font=("Helvetica", 12, "bold"),
-            bg="#e8f5e9",
-            padx=15,
-            pady=15
-        )
-        actions_frame.pack(fill=tk.X, padx=10, pady=10)
-        
-        # Informações do modelo selecionado
-        self.label_selected_model = tk.Label(
-            actions_frame,
-            text="Nenhum modelo selecionado",
-            font=("Helvetica", 10, "italic"),
-            bg="#e8f5e9",
-            fg="#666"
-        )
-        self.label_selected_model.pack(pady=5)
-        
-        # Botões de ação
-        actions_btn_frame = tk.Frame(actions_frame, bg="#e8f5e9")
-        actions_btn_frame.pack(pady=10)
-        
-        self.btn_load_to_server = tk.Button(
-            actions_btn_frame,
-            text="🚀 Carregar no Servidor",
-            command=self.load_model_to_server,
-            font=("Helvetica", 10, "bold"),
-            bg="#4CAF50",
-            fg="white",
-            height=2,
-            cursor="hand2",
-            state=tk.DISABLED
-        )
-        self.btn_load_to_server.pack(side=tk.LEFT, padx=5)
-        
-        self.btn_delete_model = tk.Button(
-            actions_btn_frame,
-            text="🗑️ Deletar Modelo",
-            command=self.delete_model,
-            font=("Helvetica", 10),
-            bg="#f44336",
-            fg="white",
-            cursor="hand2",
-            state=tk.DISABLED
-        )
-        self.btn_delete_model.pack(side=tk.LEFT, padx=5)
-        
-        self.btn_rename_model = tk.Button(
-            actions_btn_frame,
-            text="✏️ Renomear",
-            command=self.rename_model,
-            font=("Helvetica", 10),
-            bg="#FF9800",
-            fg="white",
-            cursor="hand2",
-            state=tk.DISABLED
-        )
-        self.btn_rename_model.pack(side=tk.LEFT, padx=5)
-        
-        # Status do servidor
-        server_frame = tk.LabelFrame(
-            actions_frame,
-            text="🌐 Servidor",
-            bg="#e8f5e9",
-            font=("Helvetica", 10, "bold")
-        )
-        server_frame.pack(fill=tk.X, pady=10)
-        
-        self.label_server_status = tk.Label(
-            server_frame,
-            text="Status: Verificando...",
-            font=("Helvetica", 10),
-            bg="#e8f5e9"
-        )
-        self.label_server_status.pack(pady=5)
-        
-        tk.Button(
-            server_frame,
-            text="🔄 Verificar Servidor",
-            command=self.check_server_status,
-            font=("Helvetica", 9),
-            bg="#2196F3",
-            fg="white",
-            cursor="hand2"
-        ).pack(pady=5)
-        
-        # Bind de seleção
-        self.models_tree.bind('<<TreeviewSelect>>', self.on_model_select)
-        
-        # Verificar servidor automaticamente
-        self.check_server_status()
-    
+
     # ==================== MÉTODOS DE TREINAMENTO ====================
     
     def browse_dataset(self):
@@ -666,11 +482,6 @@ class TrainingGUI:
         if self.auto_save_var.get():
             self.move_model_to_folder(model_name)
         
-        # Carregar no servidor se opção marcada
-        if self.auto_load_server_var.get():
-            self.auto_load_model_to_server(model_name)
-        
-        self.refresh_models_list()
         messagebox.showinfo("Sucesso", f"Modelo '{model_name}.h5' treinado com sucesso!")
     
     def on_training_stopped(self):
@@ -725,252 +536,33 @@ class TrainingGUI:
         """Carrega modelo automaticamente no servidor após treinamento"""
         try:
             model_file = f"{model_name}.h5"
+            self.log_training(f"Tentando carregar modelo no servidor: {model_file}")
+            self.log_training(f"URL do servidor: {self.server_url}/load_model")
+            
             response = requests.post(
                 f"{self.server_url}/load_model",
                 json={'model_path': model_file},
                 timeout=10
             )
             
+            self.log_training(f"Status da resposta: {response.status_code}")
+            
             if response.status_code == 200:
+                data = response.json()
                 self.log_training(f"✓ Modelo carregado no servidor automaticamente")
+                self.log_training(f"Resposta: {data}")
             else:
-                self.log_training(f"⚠ Não foi possível carregar no servidor automaticamente")
-        except:
-            self.log_training(f"⚠ Servidor não disponível para carregamento automático")
-    
-    # ==================== MÉTODOS DE GERENCIAMENTO ====================
-    
-    def refresh_models_list(self):
-        """Atualiza lista de modelos"""
-        models_dir = self.config['server']['models_directory']
-        models = scan_models(models_dir)
-        
-        # Limpar tabela
-        for item in self.models_tree.get_children():
-            self.models_tree.delete(item)
-        
-        # Adicionar modelos
-        for model in models:
-            status = "Disponível"
-            self.models_tree.insert(
-                '',
-                tk.END,
-                values=(
-                    model['name'],
-                    f"{model['size_mb']} MB",
-                    model['modified'],
-                    status
-                )
-            )
-    
-    def on_model_select(self, event):
-        """Callback quando modelo é selecionado"""
-        selection = self.models_tree.selection()
-        if selection:
-            item = self.models_tree.item(selection[0])
-            model_name = item['values'][0]
-            
-            self.label_selected_model.config(
-                text=f"Selecionado: {model_name}",
-                fg="green"
-            )
-            
-            self.btn_load_to_server.config(state=tk.NORMAL)
-            self.btn_delete_model.config(state=tk.NORMAL)
-            self.btn_rename_model.config(state=tk.NORMAL)
-        else:
-            self.label_selected_model.config(
-                text="Nenhum modelo selecionado",
-                fg="#666"
-            )
-            
-            self.btn_load_to_server.config(state=tk.DISABLED)
-            self.btn_delete_model.config(state=tk.DISABLED)
-            self.btn_rename_model.config(state=tk.DISABLED)
-    
-    def load_model_to_server(self):
-        """Carrega modelo selecionado no servidor"""
-        selection = self.models_tree.selection()
-        if not selection:
-            return
-        
-        item = self.models_tree.item(selection[0])
-        model_name = item['values'][0]
-        
-        resposta = messagebox.askyesno(
-            "Confirmar",
-            f"Carregar o modelo '{model_name}' no servidor?"
-        )
-        
-        if not resposta:
-            return
-        
-        try:
-            response = requests.post(
-                f"{self.server_url}/load_model",
-                json={'model_path': model_name},
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                messagebox.showinfo("Sucesso", f"Modelo '{model_name}' carregado no servidor!")
-                self.check_server_status()
-            else:
-                data = response.json()
-                messagebox.showerror("Erro", f"Não foi possível carregar o modelo:\n{data.get('message', 'Unknown error')}")
+                try:
+                    data = response.json()
+                    self.log_training(f"⚠ Erro ao carregar no servidor: {data.get('message', 'Unknown')}")
+                    self.log_training(f"Detalhes: {data}")
+                except:
+                    self.log_training(f"⚠ Erro ao carregar no servidor (status {response.status_code})")
+                    self.log_training(f"Resposta: {response.text}")
         except requests.exceptions.RequestException as e:
-            messagebox.showerror("Erro de Conexão", f"Não foi possível conectar ao servidor:\n{str(e)}")
-    
-    def delete_model(self):
-        """Deleta modelo selecionado"""
-        selection = self.models_tree.selection()
-        if not selection:
-            return
-        
-        item = self.models_tree.item(selection[0])
-        model_name = item['values'][0]
-        
-        resposta = messagebox.askyesno(
-            "Confirmar Exclusão",
-            f"Tem certeza que deseja deletar o modelo '{model_name}'?\n\nEsta ação não pode ser desfeita!"
-        )
-        
-        if not resposta:
-            return
-        
-        try:
-            models_dir = self.config['server']['models_directory']
-            model_path = os.path.join(models_dir, model_name)
-            
-            if os.path.exists(model_path):
-                os.remove(model_path)
-                
-                # Remover arquivos relacionados
-                base_name = model_name.replace('.h5', '')
-                related_files = [
-                    f"{base_name}_results.json",
-                    f"{base_name}_training_history.png",
-                    f"{base_name}_confusion_matrix.png"
-                ]
-                
-                for related_file in related_files:
-                    related_path = os.path.join(models_dir, related_file)
-                    if os.path.exists(related_path):
-                        os.remove(related_path)
-                
-                messagebox.showinfo("Sucesso", f"Modelo '{model_name}' deletado!")
-                self.refresh_models_list()
-            else:
-                messagebox.showerror("Erro", f"Arquivo não encontrado: {model_path}")
+            self.log_training(f"⚠ Erro de conexão com servidor: {str(e)}")
         except Exception as e:
-            messagebox.showerror("Erro", f"Não foi possível deletar o modelo:\n{str(e)}")
-    
-    def rename_model(self):
-        """Renomeia modelo selecionado"""
-        selection = self.models_tree.selection()
-        if not selection:
-            return
-        
-        item = self.models_tree.item(selection[0])
-        old_name = item['values'][0]
-        
-        # Diálogo para novo nome
-        dialog = tk.Toplevel(self.master)
-        dialog.title("Renomear Modelo")
-        dialog.geometry("400x150")
-        dialog.configure(bg="#f0f0f0")
-        
-        tk.Label(dialog, text="Novo nome:", bg="#f0f0f0", font=("Helvetica", 10)).pack(pady=10)
-        
-        new_name_entry = tk.Entry(dialog, width=40, font=("Helvetica", 10))
-        new_name_entry.insert(0, old_name.replace('.h5', ''))
-        new_name_entry.pack(pady=5)
-        
-        def do_rename():
-            new_name = new_name_entry.get().strip()
-            if not new_name:
-                messagebox.showwarning("Aviso", "Nome não pode ser vazio!")
-                return
-            
-            if not new_name.endswith('.h5'):
-                new_name += '.h5'
-            
-            if new_name == old_name:
-                dialog.destroy()
-                return
-            
-            try:
-                models_dir = self.config['server']['models_directory']
-                old_path = os.path.join(models_dir, old_name)
-                new_path = os.path.join(models_dir, new_name)
-                
-                if os.path.exists(new_path):
-                    messagebox.showerror("Erro", f"Já existe um modelo com o nome '{new_name}'!")
-                    return
-                
-                os.rename(old_path, new_path)
-                
-                # Renomear arquivos relacionados
-                old_base = old_name.replace('.h5', '')
-                new_base = new_name.replace('.h5', '')
-                
-                related_files = [
-                    ('_results.json', '_results.json'),
-                    ('_training_history.png', '_training_history.png'),
-                    ('_confusion_matrix.png', '_confusion_matrix.png')
-                ]
-                
-                for old_suffix, new_suffix in related_files:
-                    old_related = os.path.join(models_dir, f"{old_base}{old_suffix}")
-                    new_related = os.path.join(models_dir, f"{new_base}{new_suffix}")
-                    if os.path.exists(old_related):
-                        os.rename(old_related, new_related)
-                
-                messagebox.showinfo("Sucesso", f"Modelo renomeado para '{new_name}'!")
-                dialog.destroy()
-                self.refresh_models_list()
-            except Exception as e:
-                messagebox.showerror("Erro", f"Não foi possível renomear:\n{str(e)}")
-        
-        tk.Button(
-            dialog,
-            text="✅ Renomear",
-            command=do_rename,
-            font=("Helvetica", 10, "bold"),
-            bg="#4CAF50",
-            fg="white",
-            cursor="hand2"
-        ).pack(pady=10)
-    
-    def open_models_folder(self):
-        """Abre pasta de modelos no explorador"""
-        models_dir = self.config['server']['models_directory']
-        if os.path.exists(models_dir):
-            os.startfile(models_dir)
-        else:
-            messagebox.showerror("Erro", f"Pasta não encontrada: {models_dir}")
-    
-    def check_server_status(self):
-        """Verifica status do servidor"""
-        try:
-            response = requests.get(f"{self.server_url}/health", timeout=3)
-            if response.status_code == 200:
-                data = response.json()
-                model_name = data.get('model_name', 'Nenhum')
-                self.label_server_status.config(
-                    text=f"Status: 🟢 Online | Modelo: {model_name}",
-                    fg="green"
-                )
-            else:
-                self.label_server_status.config(
-                    text="Status: 🔴 Erro no servidor",
-                    fg="red"
-                )
-        except:
-            self.label_server_status.config(
-                text="Status: 🔴 Offline",
-                fg="red"
-            )
+            self.log_training(f"⚠ Erro inesperado ao carregar modelo: {str(e)}")
 
 
 if __name__ == "__main__":

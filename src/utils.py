@@ -108,8 +108,26 @@ def load_model(model_path):
         if not os.path.exists(model_path):
             return None, f"Arquivo não encontrado: {model_path}"
         
-        model = tf.keras.models.load_model(model_path)
-        return model, None
+        # Tentar carregar normalmente primeiro
+        try:
+            model = tf.keras.models.load_model(model_path)
+            return model, None
+        except (TypeError, ValueError) as e:
+            # Se falhar com erro de 'batch_shape', tentar com compile=False
+            if 'batch_shape' in str(e) or 'Unrecognized keyword' in str(e):
+                print(f"⚠ Modelo legado detectado, tentando carregar com compile=False...")
+                model = tf.keras.models.load_model(model_path, compile=False)
+                
+                # Recompilar o modelo com configuração padrão
+                model.compile(
+                    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+                    loss='binary_crossentropy',
+                    metrics=['accuracy']
+                )
+                print(f"✓ Modelo legado carregado e recompilado com sucesso")
+                return model, None
+            else:
+                raise
         
     except Exception as e:
         return None, f"Erro ao carregar modelo: {str(e)}"
