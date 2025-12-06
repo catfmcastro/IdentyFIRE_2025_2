@@ -1,0 +1,9 @@
+{
+    "model_name": "IdentyFIRE_2064",
+    "test_accuracy": 0.9715872406959534,
+    "test_loss": 0.07526573538780212,
+    "training_time": "10min 11.38s",
+    "epochs_trained": 11,
+    "batch_size": 64,
+    "dataset_dir": "C:/Dataset/archive"
+}

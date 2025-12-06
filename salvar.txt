@@ -1,0 +1,166 @@
+1) EXCLUSÃO MÚTUA
+não devemos impedir que o cliente conecte ao servidor, mas sim impedir que múltiplos clientes executem a Seção Crítica (o processamento pesado na GPU) ao mesmo tempo.
+
+Aqui está o roteiro para implementar isso "manualmente" (sem usar bibliotecas prontas de controle de concorrência distribuída), cumprindo os requisitos do professor.
+
+O Conceito: Algoritmo Centralizado (Coordenador)
+O Coordenador: O seu server_gui.py será o coordenador. Ele manterá uma variável de estado (quem está com a "vez") e uma fila de espera.
+
+O Token: Para entrar na Seção Crítica (fazer a predição), o cliente precisa pedir um "Token" (Lock).
+
+A Regra: Se o servidor estiver livre, entrega o Token. Se estiver ocupado, coloca o cliente na fila ou diz para ele esperar.
+
+Por que isso atende ao professor?
+Exclusão Mútua: Você garantiu que apenas um cliente entra na função predict (que usa a GPU) por vez.
+
+Sistema Distribuído: Você tem múltiplos nós (clientes) coordenados por mensagens de rede para acessar um recurso compartilhado.
+
+Implementação Manual: Você não usou multiprocessing.Lock distribuído nem Redis. Você escreveu a lógica de GRANTED, QUEUED, acquire e release manualmente via HTTP.
+
+Resiliência (Bônus): O TIMEOUT no servidor previne Deadlock caso um cliente trave e esqueça de soltar o lock.
+
+Resumo Visual da Troca de Mensagens
+
+Cliente A                       Servidor                        Cliente B
+   |                               |                               |
+   |---(POST /mutex/acquire)------>|                               |
+   |<---------(GRANTED)------------|                               |
+   |                               |                               |
+   |---(POST /predict + img)------>| [Processando GPU...]          |
+   |                               |                               |
+   |                               |<-----(POST /mutex/acquire)----|
+   |                               |---------(QUEUED pos 0)------->|
+   |                               |                               |
+   |<--------(Retorno JSON)--------|                               |
+   |---(POST /mutex/release)------>| [Lock Liberado]               |
+   |                               |                               |
+   |                               |<-----(POST /mutex/acquire)----| (Retry)
+   |                               |---------(GRANTED)------------>|
+   |                               |<----(POST /predict + img)-----|
+
+2) RPC
+
+Esta é uma excelente escolha para o trabalho. Implementar um RPC (Remote Procedure Call) manualmente sobre Sockets TCP remove a camada de abstração HTTP do Flask e demonstra domínio sobre como sistemas distribuídos trocam mensagens em baixo nível.
+
+Para atender aos requisitos do seu professor (implementar manualmente), vamos substituir o Flask e o requests por Sockets Python puros.
+
+Aqui está o plano de refatoração:
+
+Criar rpc_protocol.py: Um novo arquivo que define como empacotar mensagens (protocolo). Usaremos um cabeçalho de 4 bytes (tamanho da mensagem) seguido pelo JSON (payload). Imagens serão convertidas para Base64 para viajarem dentro do JSON.
+
+Adaptar server_gui.py: Remover Flask completamente. Criar um servidor Socket Multi-thread que escuta conexões, lê o nome do método ("acquire", "predict", etc.) e executa a função localmente.
+
+Adaptar client_gui.py: Remover requests. Implementar o cliente Socket que conecta, envia o JSON e espera a resposta.
+
+Aqui estão os códigos corrigidos.
+
+Principais alterações realizadas:
+
+Eliminação do HTTP/Flask: A biblioteca requests foi removida completamente do client_gui.py.
+
+Integração RPC: O cliente agora utiliza sockets TCP puros e as funções do rpc_protocol.py para comunicação.
+
+Serialização de Imagens: As imagens agora são convertidas para Base64 antes do envio, já que o protocolo JSON não suporta bytes brutos diretamente.
+
+utils.py: Mantido focado no servidor (Server-Side), mas limpo para garantir que processa os dados vindos do RPC corretamente.
+
+Explicação das Mudanças (Para o Relatório/Professor)
+Protocolo Customizado: Em vez de usar HTTP (que é um protocolo de texto complexo), você criou um protocolo binário-híbrido simples. Os primeiros 4 bytes indicam o tamanho do pacote, seguido de um payload JSON. Isso resolve o problema de "streaming" do TCP, onde pacotes podem chegar fragmentados ou grudados.
+
+Serialização: Como Sockets transmitem bytes e JSON é texto, imagens (binárias) não podem ir direto no JSON. Você usou Base64 para transformar a imagem em texto seguro para transporte dentro do objeto JSON.
+
+RPC Stub: A função _call_rpc no cliente age como um "Stub", abstraindo a complexidade de abrir socket, formatar mensagem, enviar e esperar resposta. Para o resto do código da GUI, parece uma chamada de função normal.
+
+Concorrência: O servidor usa threading.Thread para cada conexão aceita (socket.accept()), garantindo que múltiplos clientes possam tentar adquirir o Lock ou verificar saúde simultaneamente sem travar a GUI do servidor.
+
+1. Implementação de Exclusão Mútua (Mutex Centralizado)
+A alteração implementa um algoritmo clássico de sistemas distribuídos para garantir a integridade do servidor.
+
+O Problema (Seção Crítica): A GPU (ou o processo de inferência do TensorFlow) é o recurso compartilhado. Se múltiplos clientes enviarem imagens simultaneamente, o servidor poderia travar por falta de memória (OOM) ou corromper o estado interno do TensorFlow.
+
+A Solução: Foi criado um Gerenciador de Mutex Centralizado (MutexManager) no servidor.
+
+O Fluxo:
+
+Antes de enviar uma imagem, o cliente obrigatoriamente pede permissão (acquire).
+
+O servidor verifica:
+
+Se ninguém está usando: Responde GRANTED.
+
+Se alguém está usando: Coloca o cliente numa fila (FIFO) e responde QUEUED.
+
+O cliente fica em polling (perguntando repetidamente) até receber GRANTED.
+
+Ao terminar a análise da imagem, o cliente envia um sinal de liberação (release), permitindo que o próximo da fila assuma a GPU.
+
+2. Troca de Flask por RPC Manual (Protocolo Personalizado)
+Removemos a camada HTTP (Flask/Requests), que é "stateless" e baseada em texto/arquivos, e implementamos um protocolo binário sobre sockets TCP puros.
+
+O Protocolo: Cada mensagem agora é um pacote binário estruturado assim:
+
+Cabeçalho (4 bytes): Um número inteiro (Big Endian) que diz o tamanho exato da mensagem.
+
+Corpo (N bytes): Uma string JSON codificada em UTF-8.
+
+Quais são EXATAMENTE as mensagens trocadas?
+No contexto do projeto IdentyFire, as mensagens deixam de ser rotas de URL (POST /predict) e passam a ser objetos JSON com um campo method e um campo params. Aqui estão as principais:
+
+A. Mensagens de Controle de Concorrência (Mutex)
+Estas mensagens garantem que o cliente possui o "token" de acesso à GPU.
+
+Requisição de Lock:
+
+Cliente envia: { "method": "mutex_acquire", "params": { "client_id": "uuid-do-cliente" } }
+
+Servidor responde: { "success": true, "status": "GRANTED", "queue_position": 0 } (ou "QUEUED" se estiver ocupado).
+
+Liberação de Lock:
+
+Cliente envia: { "method": "mutex_release", "params": { "client_id": "uuid-do-cliente" } }
+
+Servidor responde: { "success": true }
+
+B. Mensagens de Dados (Imagens)
+Como o protocolo RPC é baseado em JSON, não podemos enviar o arquivo binário da imagem "cru" (como no HTTP Multipart). A imagem precisa ser serializada.
+
+Predição de Imagem Única:
+
+Cliente envia:
+
+JSON
+
+{
+  "method": "predict_image",
+  "params": {
+    "client_id": "uuid-do-cliente", 
+    "filename": "floresta.jpg",
+    "image_b64": "/9j/4AAQSkZJRgABAQEASABIAAD..." // A imagem convertida para String Base64
+  }
+}
+Nota: O client_id vai junto para o servidor validar se este cliente realmente detém o Lock.
+
+Servidor responde:
+
+JSON
+
+{
+  "success": true,
+  "fire_detected": true,
+  "confidence": 98.5,
+  "raw_score": 0.985
+}
+Predição em Lote (Batch):
+
+Cliente envia: Uma lista contendo vários objetos de imagem em Base64 dentro de um único JSON.
+
+Servidor responde: Uma lista de resultados correspondentes.
+
+C. Mensagens de Gerenciamento
+Health Check e Modelos:
+
+Cliente envia: { "method": "health_check" } ou { "method": "get_current_model" }.
+
+Servidor responde: JSON contendo status (online), nome do modelo carregado, uptime e estatísticas de uso.
+
+Resumo da Troca: Sai o HTTP (onde a imagem viaja como multipart/form-data) e entra o Socket TCP (onde a imagem viaja codificada como string Base64 dentro de um pacote JSON).
