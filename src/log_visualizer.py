@@ -388,7 +388,7 @@ class MutexLogVisualizer:
         print("GERANDO VISUALIZACOES")
         print("="*60)
         
-        os.makedirs('tests', exist_ok=True)  # ADD THIS LINE
+        os.makedirs('tests', exist_ok=True)
 
         success_count = 0
         

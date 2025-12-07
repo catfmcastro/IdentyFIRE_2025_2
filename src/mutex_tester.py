@@ -16,7 +16,6 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-# Assumindo que você tem os módulos no path
 try:
     from lamport_clock import MutexEventLogger, compare_event_logs
     from rpc_protocol import send_rpc_message, receive_rpc_message
@@ -289,7 +288,7 @@ class MutexTestSuite:
             print(f"  Progresso: {num_clients - alive}/{num_clients} threads concluídas (elapsed: {elapsed}s)", end='\r')
             time.sleep(1)
         
-        print()  # Nova linha
+        print()
         
         if all_done:
             print(f"✓ Todas as threads concluídas em {time.time() - wait_start:.1f}s")

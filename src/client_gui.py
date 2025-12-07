@@ -14,7 +14,7 @@ import json
 import subprocess
 import sys
 
-sys.setrecursionlimit(5000)  # Default is 1000
+sys.setrecursionlimit(5000)  # Default = 1000
 
 # Importação do protocolo RPC manual
 from rpc_protocol import send_rpc_message, receive_rpc_message, image_to_base64
@@ -622,8 +622,7 @@ class ClientGUI:
     def run_mutex_test(self):
         """Executa teste de mutex"""
         test_type = self.test_type_var.get()
-        
-        # FIX: Ensure spinbox values are properly retrieved and validated
+
         try:
             clients = str(int(self.test_clients_var.get()))
             accesses = str(int(self.test_accesses_var.get()))
@@ -653,7 +652,6 @@ class ClientGUI:
             "--accesses", accesses
         ]
         
-        # Debug: Log the exact command being executed
         self.log_test(f"\nComando executado:")
         self.log_test(f"  {' '.join(cmd)}\n")
         
@@ -671,8 +669,8 @@ class ClientGUI:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                encoding='utf-8',  # ADICIONE ESTA LINHA
-                errors='replace',  # ADICIONE ESTA LINHA
+                encoding='utf-8',
+                errors='replace',
                 bufsize=1
             )
             
