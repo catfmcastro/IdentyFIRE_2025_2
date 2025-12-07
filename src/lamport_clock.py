@@ -319,9 +319,9 @@ class MutexEventLogger:
                 'verification': verification
             }
             
-            # Escreve arquivo SEM lock
-            with open(filename, 'w') as f:
-                json.dump(data, f, indent=2)
+            # Escreve arquivo SEM lock COM ENCODING UTF-8
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)  # ensure_ascii=False preserva caracteres especiais
             
             return filename
         except Exception as e:
