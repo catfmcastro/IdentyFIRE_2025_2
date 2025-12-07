@@ -193,7 +193,6 @@ class IdentyFireRPCServer(RPCServerBase):
         if status == "GRANTED":
             self.log(f"🔒 Mutex CONCEDIDO para: {client_id}")
         
-        # ADICIONE: Timestamp do servidor para sincronização
         import time
         server_timestamp = int(time.time() * 1000)  # Timestamp em milissegundos
         
@@ -201,7 +200,7 @@ class IdentyFireRPCServer(RPCServerBase):
             'success': True, 
             'status': status, 
             'queue_position': position,
-            'server_timestamp': server_timestamp  # ADICIONE ESTA LINHA
+            'server_timestamp': server_timestamp
         }
 
     def rpc_mutex_release(self, params):
