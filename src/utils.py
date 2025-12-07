@@ -31,6 +31,8 @@ class MutexManager:
         self.last_activity = 0
         self.TIMEOUT_SECONDS = timeout_seconds
 
+    # No arquivo utils.py, na classe MutexManager
+
     def request_access(self, client_id):
         """
         Tenta adquirir o lock.
@@ -48,7 +50,7 @@ class MutexManager:
             # Mas só concede se a fila estiver vazia ou se ele for o primeiro da fila
             if not self.queue or self.queue[0] == client_id:
                 if self.queue and self.queue[0] == client_id:
-                    self.queue.popleft() # Remove da fila se estava lá
+                    self.queue.popleft()  # Remove da fila se estava lá
                 
                 self._grant_lock(client_id, current_time)
                 return True, "GRANTED", 0
@@ -56,7 +58,7 @@ class MutexManager:
             # Se está livre mas tem gente na fila e não é ele, entra na fila
             if client_id not in self.queue:
                 self.queue.append(client_id)
-            return False, "QUEUED", list(self.queue).index(client_id)
+            return False, "QUEUED", list(self.queue).index(client_id) + 1  # CORREÇÃO AQUI: +1
 
         # 3. Se já é o dono (Reentrância / Renovação de lease)
         if self.owner_id == client_id:
@@ -67,7 +69,7 @@ class MutexManager:
         if client_id not in self.queue:
             self.queue.append(client_id)
         
-        return False, "QUEUED", list(self.queue).index(client_id)
+        return False, "QUEUED", list(self.queue).index(client_id) + 1  # CORREÇÃO AQUI: +1
 
     def release(self, client_id):
         """Libera o recurso se o solicitante for o dono"""

@@ -183,6 +183,7 @@ class IdentyFireRPCServer(RPCServerBase):
         return {'success': False, 'error': 'Failed to load model'}
 
     def rpc_mutex_acquire(self, params):
+        """Predição de uma única imagem (Base64)"""
         client_id = params.get('client_id')
         if not client_id:
             return {'success': False, 'error': 'Missing client_id'}
@@ -191,8 +192,17 @@ class IdentyFireRPCServer(RPCServerBase):
         
         if status == "GRANTED":
             self.log(f"🔒 Mutex CONCEDIDO para: {client_id}")
-            
-        return {'success': True, 'status': status, 'queue_position': position}
+        
+        # ADICIONE: Timestamp do servidor para sincronização
+        import time
+        server_timestamp = int(time.time() * 1000)  # Timestamp em milissegundos
+        
+        return {
+            'success': True, 
+            'status': status, 
+            'queue_position': position,
+            'server_timestamp': server_timestamp  # ADICIONE ESTA LINHA
+        }
 
     def rpc_mutex_release(self, params):
         client_id = params.get('client_id')

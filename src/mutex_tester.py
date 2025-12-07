@@ -8,7 +8,13 @@ import time
 import random
 import json
 import sys
+import os
 from datetime import datetime
+
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # Assumindo que você tem os módulos no path
 try:
@@ -75,13 +81,20 @@ class MutexTestClient:
                 
                 if success and response:
                     if response.get('success') and response.get('status') == 'GRANTED':
-                        # Log do grant
+                        server_ts = response.get('server_timestamp')
+                        if server_ts:
+                            # Atualiza relógio local com timestamp do servidor
+                            self.logger.clock.receive_event(
+                                server_ts, 
+                                'MUTEX_GRANT', 
+                                {'granted': True}
+                            )
+                        
                         self.logger.log_grant(data={'queue_wait': False})
                         return True
                     
-                    # Em fila
                     pos = response.get('queue_position', 1)
-                    wait_time = min(1.0 + (pos * 0.5), 3.0)  # Max 3s
+                    wait_time = min(1.0 + (pos * 0.5), 3.0)
                     time.sleep(wait_time)
                 else:
                     time.sleep(2)
@@ -91,7 +104,7 @@ class MutexTestClient:
                 print(f"[Client {self.client_id}] Erro ao adquirir lock: {e}")
                 time.sleep(2)
         
-        return False  # Timeout
+        return False
     
     def release_lock_with_logging(self):
         """Libera lock com logging"""
@@ -102,6 +115,8 @@ class MutexTestClient:
         """Simula trabalho na seção crítica"""
         if duration is None:
             duration = random.uniform(0.1, 0.5)
+        
+        time.sleep(0.01)  # Garante que o lock foi realmente concedido
         
         # Log de entrada
         enter_ts = self.logger.log_enter_cs()
@@ -183,9 +198,11 @@ class MutexTestSuite:
     Suite de testes para exclusão mútua distribuída
     """
     
-    def __init__(self, host="127.0.0.1", port=5000):
+    def __init__(self, host="127.0.0.1", port=5000, num_clients=3, num_accesses=5):
         self.host = host
         self.port = port
+        self.num_clients = num_clients  # Store parameters
+        self.num_accesses = num_accesses  # Store parameters
         self.clients = []
         self.threads = []
     
@@ -202,7 +219,8 @@ class MutexTestSuite:
             
             # Exporta log
             print("\n--- Exportando logs ---")
-            log_file = client.logger.export_events("test_single_client.json")
+            os.makedirs('tests', exist_ok=True)
+            log_file = client.logger.export_events("tests/test_single_client.json")
             print(f"✓ Log exportado: {log_file}")
             
             # Verifica
@@ -283,9 +301,10 @@ class MutexTestSuite:
         
         # Exporta logs
         log_files = []
+        os.makedirs('tests', exist_ok=True)
         for client in self.clients:
             try:
-                log_file = client.logger.export_events(f"test_concurrent_{client.client_id}.json")
+                log_file = client.logger.export_events(f"tests/test_concurrent_{client.client_id}.json")
                 log_files.append(log_file)
                 print(f"✓ Log exportado: {log_file}")
             except Exception as e:
@@ -326,10 +345,10 @@ class MutexTestSuite:
                     print(f"  Erro ao obter stats: {e}")
             
             # Salva análise global
-            with open('test_concurrent_global_analysis.json', 'w') as f:
+            with open('tests/test_concurrent_global_analysis.json', 'w') as f:
                 json.dump(global_analysis, f, indent=2)
             
-            print("\n✓ Análise global salva em: test_concurrent_global_analysis.json")
+            print("\n✓ Análise global salva em: tests/test_concurrent_global_analysis.json")
             
             return global_analysis['safe']
             
@@ -362,15 +381,21 @@ class MutexTestSuite:
             print("✓ Teste 1 concluído\n")
             time.sleep(2)
             
-            # Teste 2
+            # Teste 2 - RESPECTS num_clients parameter from main()
             print("\n[2/3] Executando teste de clientes concorrentes...")
-            results['concurrent_clients'] = self.test_concurrent_clients(3, 5)
+            results['concurrent_clients'] = self.test_concurrent_clients(
+                self.num_clients, 
+                self.num_accesses
+            )
             print("✓ Teste 2 concluído\n")
             time.sleep(2)
             
-            # Teste 3
+            # Teste 3 - RESPECTS parameters
             print("\n[3/3] Executando teste de stress...")
-            results['stress_test'] = self.test_stress(5, 3)
+            results['stress_test'] = self.test_stress(
+                self.num_clients, 
+                self.num_accesses
+            )
             print("✓ Teste 3 concluído\n")
             
         except KeyboardInterrupt:
@@ -446,7 +471,7 @@ def main():
     print("="*60)
     sys.stdout.flush()
     
-    suite = MutexTestSuite(args.host, args.port)
+    suite = MutexTestSuite(args.host, args.port, args.clients, args.accesses)
     result = False
     
     try:
